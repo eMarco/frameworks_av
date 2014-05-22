@@ -40,6 +40,8 @@
 #include <media/stagefright/MetaData.h>
 #include <utils/String8.h>
 
+#include "include/ExtendedUtils.h"
+
 namespace android {
 
 sp<MetaData> MediaExtractor::getMetaData() {
@@ -129,7 +131,7 @@ sp<MediaExtractor> MediaExtractor::Create(
        }
     }
 
-    return ret;
+    return ExtendedUtils::MediaExtractor_CreateIfNeeded(ret, source, mime);
 }
 
 }  // namespace android
