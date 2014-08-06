@@ -4947,7 +4947,7 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
             ++matchIndex) {
         componentName = matchingCodecs.itemAt(matchIndex).mName.string();
         quirks = matchingCodecs.itemAt(matchIndex).mQuirks;
-        ExtendedCodec::overrideComponentName(quirks, msg, &componentName);
+        ExtendedCodec::overrideComponentName(quirks, msg, &componentName, &mime, encoder);
 
         pid_t tid = gettid();
         int prevPriority = androidGetThreadPriority(tid);
