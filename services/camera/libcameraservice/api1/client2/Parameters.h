@@ -28,6 +28,10 @@
 #include <camera/CameraParameters2.h>
 #include <camera/CameraMetadata.h>
 
+#if __cplusplus < 201103L && !defined(__GXX_EXPERIMENTAL_CXX0X__) && !defined(constexpr)
+#define constexpr const
+#endif
+
 namespace android {
 namespace camera2 {
 
