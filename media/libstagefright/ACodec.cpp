@@ -730,8 +730,8 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
 
     // FIXME: assume that surface is controlled by app (native window
     // returns the number for the case when surface is not controlled by app)
-    (*minUndequeuedBuffers)++;
-
+    // FIXME2: This means that minUndeqeueudBufs can be 1 larger than reported
+    // For now, try to allocate 1 more buffer, but don't fail if unsuccessful
 
     // Use conservative allocation while also trying to reduce starvation
     //
@@ -739,13 +739,14 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
     //    minimum needed for the consumer to be able to work
     // 2. try to allocate two (2) additional buffers to reduce starvation from
     //    the consumer
+    //    plus an extra buffer to account for incorrect minUndequeuedBufs
 #ifdef BOARD_CANT_REALLOCATE_OMX_BUFFERS
     // Some devices don't like to set OMX_IndexParamPortDefinition at this
     // point (even with an unmodified def), so skip it if possible.
     // This check was present in KitKat.
     if (def.nBufferCountActual < def.nBufferCountMin + *minUndequeuedBuffers) {
 #endif
-    for (OMX_U32 extraBuffers = 2; /* condition inside loop */; extraBuffers--) {
+    for (OMX_U32 extraBuffers = 2 + 1; /* condition inside loop */; extraBuffers--) {
         OMX_U32 newBufferCount =
             def.nBufferCountMin + *minUndequeuedBuffers + extraBuffers;
         def.nBufferCountActual = newBufferCount;
