@@ -44,6 +44,7 @@ LOCAL_SRC_FILES:=                         \
         NuMediaExtractor.cpp              \
         OMXClient.cpp                     \
         OMXCodec.cpp                      \
+        ExtendedCodec.cpp                 \
         OggExtractor.cpp                  \
         SampleIterator.cpp                \
         SampleTable.cpp                   \
@@ -57,9 +58,14 @@ LOCAL_SRC_FILES:=                         \
         Utils.cpp                         \
         VBRISeeker.cpp                    \
         WAVExtractor.cpp                  \
+        WAVEWriter.cpp                    \
         WVMExtractor.cpp                  \
         XINGSeeker.cpp                    \
         avc_utils.cpp                     \
+        ExtendedExtractor.cpp             \
+        ExtendedUtils.cpp                 \
+        ExtendedStats.cpp                 \
+        FFMPEGSoftCodec.cpp               \
 
 LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/include/media/ \
@@ -115,6 +121,15 @@ LOCAL_STATIC_LIBRARIES := \
         libstagefright_id3 \
         libFLAC \
         libmedia_helper
+
+ifeq ($(TARGET_ENABLE_QC_AV_ENHANCEMENTS),true)
+       LOCAL_CFLAGS     += -DENABLE_AV_ENHANCEMENTS
+       LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media/mm-core/inc
+       LOCAL_C_INCLUDES += $(TOP)/frameworks/av/media/libstagefright/include
+       LOCAL_SRC_FILES  += ExtendedMediaDefs.cpp
+       LOCAL_SRC_FILES  += ExtendedWriter.cpp
+       LOCAL_SRC_FILES  += FMA2DPWriter.cpp
+endif #TARGET_ENABLE_AV_ENHANCEMENTS
 
 LOCAL_SHARED_LIBRARIES += \
         libstagefright_enc_common \

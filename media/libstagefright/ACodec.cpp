@@ -40,6 +40,8 @@
 #include <media/stagefright/NativeWindowWrapper.h>
 #include <media/stagefright/OMXClient.h>
 #include <media/stagefright/OMXCodec.h>
+#include <media/stagefright/ExtendedCodec.h>
+#include <media/stagefright/FFMPEGSoftCodec.h>
 
 #include <media/hardware/HardwareAPI.h>
 
@@ -49,6 +51,11 @@
 #include <OMX_IndexExt.h>
 
 #include "include/avc_utils.h"
+
+#ifdef ENABLE_AV_ENHANCEMENTS
+#include <QCMediaDefs.h>
+#include <ExtendedUtils.h>
+#endif
 
 namespace android {
 
@@ -468,6 +475,9 @@ void ACodec::initiateAllocateComponent(const sp<AMessage> &msg) {
 }
 
 void ACodec::initiateConfigureComponent(const sp<AMessage> &msg) {
+    if (mMediaExtendedStats == NULL)
+        msg->findObject(MEDIA_EXTENDED_STATS, (sp<RefBase>*)&mMediaExtendedStats);
+
     msg->setWhat(kWhatConfigureComponent);
     msg->setTarget(id());
     msg->post();
@@ -521,6 +531,15 @@ void ACodec::signalSubmitOutputMetaDataBufferIfEOS_workaround() {
 }
 
 status_t ACodec::allocateBuffersOnPort(OMX_U32 portIndex) {
+    ATRACE_NAME(mComponentName.c_str());
+
+    bool isVideo = mComponentName.find("video") != -1;
+    const char* portType = portIndex == kPortIndexInput ?
+                                        STATS_PROFILE_ALLOCATE_INPUT(isVideo) :
+                                        STATS_PROFILE_ALLOCATE_OUTPUT(isVideo);
+    ExtendedStats::AutoProfile autoProfile(portType,
+            mMediaExtendedStats == NULL ? NULL : mMediaExtendedStats->getProfileTimes());
+
     CHECK(portIndex == kPortIndexInput || portIndex == kPortIndexOutput);
 
     CHECK(mDealer[portIndex] == NULL);
@@ -1083,6 +1102,20 @@ status_t ACodec::setComponentRole(
             "audio_decoder.amrnb", "audio_encoder.amrnb" },
         { MEDIA_MIMETYPE_AUDIO_AMR_WB,
             "audio_decoder.amrwb", "audio_encoder.amrwb" },
+#ifdef ENABLE_AV_ENHANCEMENTS
+        { MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS,
+            "audio_decoder.amrwbplus", "audio_encoder.amrwbplus" },
+        { MEDIA_MIMETYPE_AUDIO_EVRC,
+            "audio_decoder.evrchw", "audio_encoder.evrc" },
+        { MEDIA_MIMETYPE_AUDIO_QCELP,
+            "audio_decoder,qcelp13Hw", "audio_encoder.qcelp13" },
+#ifdef DOLBY_UDC
+        { MEDIA_MIMETYPE_AUDIO_AC3,
+            "audio_decoder.ac3", NULL },
+        { MEDIA_MIMETYPE_AUDIO_EAC3,
+            "audio_decoder.ec3", NULL },
+#endif // DOLBY_END
+#endif
         { MEDIA_MIMETYPE_AUDIO_AAC,
             "audio_decoder.aac", "audio_encoder.aac" },
         { MEDIA_MIMETYPE_AUDIO_VORBIS,
@@ -1128,7 +1161,16 @@ status_t ACodec::setComponentRole(
     }
 
     if (i == kNumMimeToRole) {
-        return ERROR_UNSUPPORTED;
+        status_t err = BAD_VALUE;
+#ifdef ENABLE_AV_ENHANCEMENTS
+        if (!strncmp(mComponentName.c_str(), "OMX.qcom.", 9)) {
+            err = ExtendedCodec::setSupportedRole(mOMX, mNode, isEncoder, mime);
+        }
+#endif
+        if (!strncmp(mComponentName.c_str(), "OMX.ffmpeg.", 11)) {
+            err = FFMPEGSoftCodec::setSupportedRole(mOMX, mNode, isEncoder, mime);
+        }
+        return err;
     }
 
     const char *role =
@@ -1161,10 +1203,15 @@ status_t ACodec::setComponentRole(
 
 status_t ACodec::configureCodec(
         const char *mime, const sp<AMessage> &msg) {
+    ATRACE_NAME("configureCodec");
     int32_t encoder;
     if (!msg->findInt32("encoder", &encoder)) {
         encoder = false;
     }
+
+    bool isVideo = mComponentName.find("video") != -1;
+    ExtendedStats::AutoProfile autoProfile(STATS_PROFILE_CONFIGURE_CODEC(isVideo),
+                mMediaExtendedStats == NULL ? NULL : mMediaExtendedStats->getProfileTimes());
 
     sp<AMessage> inputFormat = new AMessage();
     sp<AMessage> outputFormat = new AMessage();
@@ -1378,6 +1425,10 @@ status_t ACodec::configureCodec(
         } else {
             err = setupVideoDecoder(mime, msg);
         }
+        if (err == OK) {
+            const char* componentName = mComponentName.c_str();
+            ExtendedCodec::configureVideoDecoder(msg, mime, mOMX, 0, mNode, componentName);
+        }
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MPEG)) {
         int32_t numChannels, sampleRate;
         if (!msg->findInt32("channel-count", &numChannels)
@@ -1460,11 +1511,10 @@ status_t ACodec::configureCodec(
         } else {
             err = setupG711Codec(encoder, numChannels);
         }
-    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_FLAC)) {
+    } else if (encoder && !strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_FLAC)) {
         int32_t numChannels, sampleRate, compressionLevel = -1;
-        if (encoder &&
-                (!msg->findInt32("channel-count", &numChannels)
-                        || !msg->findInt32("sample-rate", &sampleRate))) {
+        if (!msg->findInt32("channel-count", &numChannels)
+                    || !msg->findInt32("sample-rate", &sampleRate)) {
             ALOGE("missing channel count or sample rate for FLAC encoder");
             err = INVALID_OPERATION;
         } else {
@@ -1506,6 +1556,27 @@ status_t ACodec::configureCodec(
             err = INVALID_OPERATION;
         } else {
             err = setupAC3Codec(encoder, numChannels, sampleRate);
+        }
+    } else {
+        if (encoder) {
+            int32_t numChannels, sampleRate;
+            if (msg->findInt32("channel-count", &numChannels)
+                  && msg->findInt32("sample-rate", &sampleRate)) {
+                setupRawAudioFormat(kPortIndexInput, sampleRate, numChannels);
+            }
+        }
+#ifdef ENABLE_AV_ENHANCEMENTS
+        if (!strncmp(mComponentName.c_str(), "OMX.qcom.", 9)) {
+            err = ExtendedCodec::setAudioFormat(
+                    msg, mime, mOMX, mNode, mIsEncoder);
+        }
+#endif
+        if(!strncmp(mComponentName.c_str(), "OMX.ffmpeg.", 11)) {
+            err = FFMPEGSoftCodec::setAudioFormat(
+                    msg, mime, mOMX, mNode, mIsEncoder);
+        }
+        if (err != OK) {
+            return err;
         }
     }
 
@@ -2111,7 +2182,18 @@ status_t ACodec::setupVideoDecoder(
     status_t err = GetVideoCodingTypeFromMime(mime, &compressionFormat);
 
     if (err != OK) {
-        return err;
+#ifdef ENABLE_AV_ENHANCEMENTS
+        if (!strncmp(mComponentName.c_str(), "OMX.qcom.", 9)) {
+            err = ExtendedCodec::setVideoFormat(msg, mime, &compressionFormat);
+        }
+#endif
+        if (!strncmp(mComponentName.c_str(), "OMX.ffmpeg.", 11)) {
+            err = FFMPEGSoftCodec::setVideoFormat(
+                    msg, mime, mOMX, mNode, mIsEncoder, &compressionFormat);
+        }
+        if (err != OK) {
+            return err;
+        }
     }
 
     err = setVideoPortFormatType(
@@ -2248,7 +2330,19 @@ status_t ACodec::setupVideoEncoder(const char *mime, const sp<AMessage> &msg) {
     err = GetVideoCodingTypeFromMime(mime, &compressionFormat);
 
     if (err != OK) {
-        return err;
+#ifdef ENABLE_AV_ENHANCEMENTS
+        if (!strncmp(mComponentName.c_str(), "OMX.qcom.", 9)) {
+            err = ExtendedCodec::setVideoFormat(msg, mime, &compressionFormat);
+        }
+#endif
+        if (!strncmp(mComponentName.c_str(), "OMX.ffmpeg.", 11)) {
+            err = FFMPEGSoftCodec::setVideoFormat(
+                    msg, mime, mOMX, mNode, mIsEncoder, &compressionFormat);
+        }
+        if (err != OK) {
+            ALOGE("Not a supported video mime type: %s", mime);
+            return err;
+        }
     }
 
     err = setVideoPortFormatType(
@@ -3506,8 +3600,37 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                 }
 
                 default:
+                {
+                    AString mimeType;
+                    status_t err = ERROR_UNSUPPORTED;
+#ifdef ENABLE_AV_ENHANCEMENTS
+                    if (!strncmp(mComponentName.c_str(), "OMX.qcom.", 9)) {
+                        err = ExtendedCodec::handleSupportedAudioFormats(
+                            audioDef->eEncoding, &mimeType);
+                    }
+#endif
+                    if (!strncmp(mComponentName.c_str(), "OMX.ffmpeg.", 11)) {
+                        err = FFMPEGSoftCodec::handleSupportedAudioFormats(
+                                audioDef->eEncoding, &mimeType);
+                    }
+                    if (err == OK) {
+                        int channelCount = 0;
+                        int sampleRate = 0;
+                        err = ExtendedCodec::getSupportedAudioFormatInfo(
+                                      &mimeType,
+                                      mOMX,
+                                      mNode,
+                                      portIndex,
+                                      &channelCount,
+                                      &sampleRate);
+                        notify->setString("mime", mimeType.c_str());
+                        notify->setInt32("channel-count", channelCount);
+                        notify->setInt32("sample-rate", sampleRate);
+                        break;
+                    }
                     ALOGE("UNKNOWN AUDIO CODING: %d\n", audioDef->eEncoding);
                     TRESPASS();
+                }
             }
             break;
         }
@@ -4099,6 +4222,12 @@ void ACodec::BaseState::onInputBufferFilled(const sp<AMessage> &msg) {
                     }
                 }
 
+                if (mCodec->mMediaExtendedStats != NULL) {
+                    bool isVideo = mCodec->mComponentName.find("video") != -1;
+                    mCodec->mMediaExtendedStats->profileStartOnce(
+                            STATS_PROFILE_FIRST_BUFFER(isVideo));
+                }
+
                 CHECK_EQ(mCodec->mOMX->emptyBuffer(
                             mCodec->mNode,
                             bufferID,
@@ -4328,6 +4457,12 @@ void ACodec::BaseState::onOutputBufferDrained(const sp<AMessage> &msg) {
         ATRACE_NAME("render");
         // The client wants this buffer to be rendered.
 
+        if (mCodec->mMediaExtendedStats != NULL) {
+            bool isVideo = mCodec->mComponentName.find("video") != -1;
+            mCodec->mMediaExtendedStats->profileStop(
+                STATS_PROFILE_FIRST_BUFFER(isVideo));
+        }
+
         int64_t timestampNs = 0;
         if (!msg->findInt64("timestampNs", &timestampNs)) {
             // TODO: it seems like we should use the timestamp
@@ -4506,7 +4641,7 @@ void ACodec::UninitializedState::onSetup(
 
 bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
     ALOGV("onAllocateComponent");
-
+    ATRACE_NAME("onAllocatecomponent");
     CHECK(mCodec->mNode == NULL);
 
     OMXClient client;
@@ -4546,6 +4681,33 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
             encoder = false;
         }
 
+        ALOGV("onAllocateComponent %s %d", mime.c_str(), encoder);
+#ifdef ENABLE_AV_ENHANCEMENTS
+    // Call UseQCHWAACEncoder with no arguments to get the correct state since
+    // MediaCodecSource does not pass the output format details when calling
+    // kInit leading to msg passed not having enough details
+    if (!strcasecmp(mime.c_str(), MEDIA_MIMETYPE_AUDIO_AAC)
+        && ExtendedUtils::UseQCHWAACEncoder()) {
+        //use hw aac encoder
+        ALOGD("use QCOM HW AAC encoder");
+        OMXCodec::findMatchingCodecs(
+                mime.c_str(),
+                encoder, // createEncoder
+                "OMX.qcom.audio.encoder.aac",  // OMX.qcom.audio.encoder.aac
+                0,     // flags
+                &matchingCodecs);
+#ifdef QTI_FLAC_DECODER
+    } else if (!strcasecmp(mime.c_str(), MEDIA_MIMETYPE_AUDIO_FLAC) && !encoder) {
+        //use google's raw decoder
+        OMXCodec::findMatchingCodecs(
+                MEDIA_MIMETYPE_AUDIO_RAW,
+                encoder, //createEncoder
+                "OMX.google.raw.decoder",
+                0, //flags
+                &matchingCodecs);
+#endif
+    } else
+#endif
         OMXCodec::findMatchingCodecs(
                 mime.c_str(),
                 encoder, // createEncoder
@@ -4561,6 +4723,8 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
             ++matchIndex) {
         componentName = matchingCodecs.itemAt(matchIndex).mName.string();
         quirks = matchingCodecs.itemAt(matchIndex).mQuirks;
+        // this doesn't work here as the format isn't passed in the message
+        //ExtendedCodec::overrideComponentName(quirks, msg, &componentName, &mime, encoder);
 
         pid_t tid = androidGetTid();
         int prevPriority = androidGetThreadPriority(tid);
@@ -4740,7 +4904,8 @@ bool ACodec::LoadedState::onConfigureComponent(
 
     sp<RefBase> obj;
     if (msg->findObject("native-window", &obj)
-            && strncmp("OMX.google.", mCodec->mComponentName.c_str(), 11)) {
+            && strncmp("OMX.google.", mCodec->mComponentName.c_str(), 11)
+            && strncmp("OMX.ffmpeg.", mCodec->mComponentName.c_str(), 11)) {
         sp<NativeWindowWrapper> nativeWindow(
                 static_cast<NativeWindowWrapper *>(obj.get()));
         CHECK(nativeWindow != NULL);

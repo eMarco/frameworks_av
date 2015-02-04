@@ -34,6 +34,12 @@
 #include <hardware/audio.h>
 #include <media/stagefright/Utils.h>
 #include <media/AudioParameter.h>
+#include <media/stagefright/ExtendedCodec.h>
+
+#include "include/ExtendedUtils.h"
+#ifdef ENABLE_AV_ENHANCEMENTS
+#include "QCMediaDefs.h"
+#endif
 
 namespace android {
 
@@ -256,7 +262,7 @@ status_t convertMetaDataToMessage(
         const uint8_t *ptr = (const uint8_t *)data;
 
         CHECK(size >= 7);
-        CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
+        //CHECK_EQ((unsigned)ptr[0], 1u);  // configurationVersion == 1
         uint8_t profile = ptr[1] & 31;
         uint8_t level = ptr[12];
         ptr += 22;
@@ -346,6 +352,7 @@ status_t convertMetaDataToMessage(
         msg->setBuffer("csd-0", buffer);
     }
 
+    ExtendedCodec::convertMetaDataToMessage(meta, &msg);
     *format = msg;
 
     return OK;
@@ -551,7 +558,23 @@ void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
     if (msg->findBuffer("csd-0", &csd0)) {
         if (mime.startsWith("video/")) { // do we need to be stricter than this?
             sp<ABuffer> csd1;
-            if (msg->findBuffer("csd-1", &csd1)) {
+
+            if (mime.startsWith(MEDIA_MIMETYPE_VIDEO_HEVC)) {
+                ALOGV("writing HVCC key value pair");
+                char hvcc[1024];
+                void* reassembledHVCC = NULL;
+                size_t reassembledHVCCBuffSize = 0;
+                if (ExtendedUtils::HEVCMuxer::makeHEVCCodecSpecificData(
+                    csd0->data(), csd0->size(),
+                    &reassembledHVCC, &reassembledHVCCBuffSize) == OK) {
+                    if (reassembledHVCC != NULL) {
+                        meta->setData(kKeyHVCC, kKeyHVCC, reassembledHVCC, reassembledHVCCBuffSize);
+                        free(reassembledHVCC);
+                    }
+                } else {
+                    ALOGE("Failed to reassemble HVCC data");
+                }
+            } else if (msg->findBuffer("csd-1", &csd1)) {
                 char avcc[1024]; // that oughta be enough, right?
                 size_t outsize = reassembleAVCC(csd0, csd1, avcc);
                 meta->setData(kKeyAVCC, kKeyAVCC, avcc, outsize);
@@ -641,6 +664,17 @@ static const struct mime_conv_t mimeLookup[] = {
     { MEDIA_MIMETYPE_AUDIO_AAC,         AUDIO_FORMAT_AAC },
     { MEDIA_MIMETYPE_AUDIO_VORBIS,      AUDIO_FORMAT_VORBIS },
     { MEDIA_MIMETYPE_AUDIO_OPUS,        AUDIO_FORMAT_OPUS},
+#ifdef ENABLE_AV_ENHANCEMENTS
+    { MEDIA_MIMETYPE_AUDIO_AC3,         AUDIO_FORMAT_AC3 },
+    { MEDIA_MIMETYPE_AUDIO_AMR_WB_PLUS, AUDIO_FORMAT_AMR_WB_PLUS },
+    { MEDIA_MIMETYPE_AUDIO_DTS,         AUDIO_FORMAT_DTS },
+    { MEDIA_MIMETYPE_AUDIO_EAC3,        AUDIO_FORMAT_E_AC3 },
+    { MEDIA_MIMETYPE_AUDIO_EVRC,        AUDIO_FORMAT_EVRC },
+    { MEDIA_MIMETYPE_AUDIO_QCELP,       AUDIO_FORMAT_QCELP },
+    { MEDIA_MIMETYPE_AUDIO_WMA,         AUDIO_FORMAT_WMA },
+    { MEDIA_MIMETYPE_AUDIO_FLAC,        AUDIO_FORMAT_FLAC },
+    { MEDIA_MIMETYPE_CONTAINER_QTIFLAC, AUDIO_FORMAT_FLAC },
+#endif
     { 0, AUDIO_FORMAT_INVALID }
 };
 

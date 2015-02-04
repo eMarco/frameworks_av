@@ -52,7 +52,17 @@
 #include <ctype.h>
 #include <unistd.h>
 
+#include "ExtendedUtils.h"
+
 #include <system/audio.h>
+
+#ifdef ENABLE_AV_ENHANCEMENTS
+#include <ExtendedUtils.h>
+#include <media/stagefright/ExtendedWriter.h>
+#include <media/stagefright/FMA2DPWriter.h>
+#include <media/stagefright/WAVEWriter.h>
+#include <QCMediaDefs.h>
+#endif
 
 #include "ARTPWriter.h"
 
@@ -79,6 +89,8 @@ StagefrightRecorder::StagefrightRecorder()
 
     ALOGV("Constructor");
     reset();
+
+    mRecorderExtendedStats = new RecorderExtendedStats("StagefrightRecorder", gettid());
 }
 
 StagefrightRecorder::~StagefrightRecorder() {
@@ -114,6 +126,10 @@ status_t StagefrightRecorder::setAudioSource(audio_source_t as) {
         as >= AUDIO_SOURCE_CNT) {
         ALOGE("Invalid audio source: %d", as);
         return BAD_VALUE;
+    }
+
+    if (ExtendedUtils::ShellProp::isAudioDisabled(true)) {
+        return OK;
     }
 
     if (as == AUDIO_SOURCE_DEFAULT) {
@@ -167,12 +183,42 @@ status_t StagefrightRecorder::setAudioEncoder(audio_encoder ae) {
         return BAD_VALUE;
     }
 
+    if (ExtendedUtils::ShellProp::isAudioDisabled(true)) {
+        return OK;
+    }
+
     if (ae == AUDIO_ENCODER_DEFAULT) {
         mAudioEncoder = AUDIO_ENCODER_AMR_NB;
     } else {
         mAudioEncoder = ae;
     }
 
+    // Use default values if appropriate setparam's weren't called.
+    if(mAudioEncoder == AUDIO_ENCODER_AAC) {
+        mSampleRate = mSampleRate ? mSampleRate : 48000;
+        mAudioChannels = mAudioChannels ? mAudioChannels : 2;
+        mAudioBitRate = mAudioBitRate ? mAudioBitRate : 156000;
+    } else if(mAudioEncoder == AUDIO_ENCODER_LPCM) {
+        mSampleRate = mSampleRate ? mSampleRate : 48000;
+        mAudioChannels = mAudioChannels ? mAudioChannels : 2;
+        mAudioBitRate = mAudioBitRate ? mAudioBitRate : 4608000;
+    } else if(mAudioEncoder == AUDIO_ENCODER_AMR_WB) {
+        mSampleRate = 16000;
+        mAudioChannels = 1;
+        mAudioBitRate = mAudioBitRate ? mAudioBitRate : 23850;
+    } else if(mAudioEncoder == AUDIO_ENCODER_EVRC) {
+        mSampleRate =  mSampleRate ? mSampleRate : 8000;
+        mAudioChannels = mAudioChannels ? mAudioChannels : 1;
+        mAudioBitRate = mAudioBitRate ? mAudioBitRate : 8500;
+    } else if(mAudioEncoder == AUDIO_ENCODER_QCELP) {
+        mSampleRate = mSampleRate ? mSampleRate : 8000;
+        mAudioChannels = mAudioChannels ? mAudioChannels : 1;
+        mAudioBitRate = mAudioBitRate ? mAudioBitRate : 13300;
+    } else {
+        mSampleRate = mSampleRate ? mSampleRate : 8000;
+        mAudioChannels = mAudioChannels ? mAudioChannels : 1;
+        mAudioBitRate = mAudioBitRate ? mAudioBitRate : 12200;
+    }
     return OK;
 }
 
@@ -337,7 +383,7 @@ status_t StagefrightRecorder::setParamAudioSamplingRate(int32_t sampleRate) {
 
 status_t StagefrightRecorder::setParamAudioNumberOfChannels(int32_t channels) {
     ALOGV("setParamAudioNumberOfChannels: %d", channels);
-    if (channels <= 0 || channels >= 3) {
+    if (channels != 1 && channels != 2 && channels != 6) {
         ALOGE("Invalid number of audio channels: %d", channels);
         return BAD_VALUE;
     }
@@ -758,6 +804,11 @@ status_t StagefrightRecorder::prepareInternal() {
 
     status_t status = OK;
 
+#ifdef ENABLE_AV_ENHANCEMENTS
+    if(AUDIO_SOURCE_FM_RX_A2DP == mAudioSource)
+        return setupFMA2DPWriter();
+#endif
+
     switch (mOutputFormat) {
         case OUTPUT_FORMAT_DEFAULT:
         case OUTPUT_FORMAT_THREE_GPP:
@@ -784,6 +835,16 @@ status_t StagefrightRecorder::prepareInternal() {
             status = setupMPEG2TSRecording();
             break;
 
+#ifdef ENABLE_AV_ENHANCEMENTS
+        case OUTPUT_FORMAT_QCP:
+            status = setupExtendedRecording();
+            break;
+
+        case OUTPUT_FORMAT_WAVE:
+            status = setupWAVERecording();
+            break;
+#endif
+
         default:
             ALOGE("Unsupported output file format: %d", mOutputFormat);
             status = UNKNOWN_ERROR;
@@ -802,6 +863,9 @@ status_t StagefrightRecorder::prepare() {
 
 status_t StagefrightRecorder::start() {
     ALOGV("start");
+    ExtendedStats::AutoProfile autoProfile(STATS_PROFILE_START_LATENCY,
+            mRecorderExtendedStats == NULL ? 0 : mRecorderExtendedStats->getProfileTimes());
+
     if (mOutputFd < 0) {
         ALOGE("Output file descriptor is invalid");
         return INVALID_OPERATION;
@@ -833,6 +897,8 @@ status_t StagefrightRecorder::start() {
             }
             sp<MetaData> meta = new MetaData;
             setupMPEG4orWEBMMetaData(&meta);
+
+            meta->setPointer(ExtendedStats::MEDIA_STATS_FLAG, mRecorderExtendedStats.get());
             status = mWriter->start(meta.get());
             break;
         }
@@ -843,6 +909,10 @@ status_t StagefrightRecorder::start() {
         case OUTPUT_FORMAT_AAC_ADTS:
         case OUTPUT_FORMAT_RTP_AVP:
         case OUTPUT_FORMAT_MPEG2TS:
+#ifdef ENABLE_AV_ENHANCEMENTS
+        case OUTPUT_FORMAT_QCP:
+        case OUTPUT_FORMAT_WAVE:
+#endif
         {
             status = mWriter->start();
             break;
@@ -914,6 +984,17 @@ sp<MediaSource> StagefrightRecorder::createAudioSource() {
             format->setString("mime", MEDIA_MIMETYPE_AUDIO_AAC);
             format->setInt32("aac-profile", OMX_AUDIO_AACObjectELD);
             break;
+#ifdef ENABLE_AV_ENHANCEMENTS
+        case AUDIO_ENCODER_LPCM:
+            format->setString("mime", MEDIA_MIMETYPE_AUDIO_RAW);
+            break;
+        case AUDIO_ENCODER_EVRC:
+            format->setString("mime", MEDIA_MIMETYPE_AUDIO_EVRC);
+            break;
+        case AUDIO_ENCODER_QCELP:
+            format->setString("mime", MEDIA_MIMETYPE_AUDIO_QCELP);
+            break;
+#endif
 
         default:
             ALOGE("Unknown audio encoder: %d", mAudioEncoder);
@@ -932,8 +1013,18 @@ sp<MediaSource> StagefrightRecorder::createAudioSource() {
         format->setInt32("time-scale", mAudioTimeScale);
     }
 
+    format->setObject(MEDIA_EXTENDED_STATS, mRecorderExtendedStats);
     sp<MediaSource> audioEncoder =
             MediaCodecSource::Create(mLooper, format, audioSource);
+    // If encoder could not be created (as in LPCM), then
+    // use the AudioSource directly as the MediaSource.
+    if (audioEncoder == NULL) {
+        ALOGD("No encoder is needed, use the AudioSource directly as the MediaSource");
+        audioEncoder = audioSource;
+    }
+    if (mAudioSourceNode != NULL) {
+        mAudioSourceNode.clear();
+    }
     mAudioSourceNode = audioSource;
 
     if (audioEncoder == NULL) {
@@ -968,12 +1059,28 @@ status_t StagefrightRecorder::setupAMRRecording() {
                     mAudioEncoder);
             return BAD_VALUE;
         }
+        if (mSampleRate != 8000) {
+            ALOGE("Invalid sampling rate %d used for AMRNB recording",
+                    mSampleRate);
+            return BAD_VALUE;
+        }
     } else {  // mOutputFormat must be OUTPUT_FORMAT_AMR_WB
         if (mAudioEncoder != AUDIO_ENCODER_AMR_WB) {
             ALOGE("Invlaid encoder %d used for AMRWB recording",
                     mAudioEncoder);
             return BAD_VALUE;
         }
+        if (mSampleRate != 16000) {
+            ALOGE("Invalid sample rate %d used for AMRWB recording",
+                    mSampleRate);
+            return BAD_VALUE;
+        }
+    }
+
+    if (mAudioChannels != 1) {
+        ALOGE("Invalid number of audio channels %d used for amr recording",
+                mAudioChannels);
+        return BAD_VALUE;
     }
 
     mWriter = new AMRWriter(mOutputFd);
@@ -1168,13 +1275,17 @@ status_t StagefrightRecorder::checkVideoEncoderCapabilities(
     Vector<CodecCapabilities> codecs;
     OMXClient client;
     CHECK_EQ(client.connect(), (status_t)OK);
+    ExtendedStats::AutoProfile autoProfile(STATS_PROFILE_ALLOCATE_NODE(true) /* isVideo */,
+            mRecorderExtendedStats == NULL ? 0 : mRecorderExtendedStats->getProfileTimes());
     QueryCodecs(
             client.interface(),
             (mVideoEncoder == VIDEO_ENCODER_H263 ? MEDIA_MIMETYPE_VIDEO_H263 :
              mVideoEncoder == VIDEO_ENCODER_MPEG_4_SP ? MEDIA_MIMETYPE_VIDEO_MPEG4 :
              mVideoEncoder == VIDEO_ENCODER_VP8 ? MEDIA_MIMETYPE_VIDEO_VP8 :
-             mVideoEncoder == VIDEO_ENCODER_H264 ? MEDIA_MIMETYPE_VIDEO_AVC : ""),
+             mVideoEncoder == VIDEO_ENCODER_H264 ? MEDIA_MIMETYPE_VIDEO_AVC :
+             mVideoEncoder == VIDEO_ENCODER_H265 ? MEDIA_MIMETYPE_VIDEO_HEVC : ""),
             false /* decoder */, true /* hwCodec */, &codecs);
+
     *supportsCameraSourceMetaDataMode = codecs.size() > 0;
     ALOGV("encoder %s camera source meta-data mode",
             *supportsCameraSourceMetaDataMode ? "supports" : "DOES NOT SUPPORT");
@@ -1385,6 +1496,9 @@ status_t StagefrightRecorder::setupMediaSource(
 
 status_t StagefrightRecorder::setupCameraSource(
         sp<CameraSource> *cameraSource) {
+    ExtendedStats::AutoProfile autoProfile(STATS_PROFILE_SET_CAMERA_SOURCE,
+            mRecorderExtendedStats == NULL ? 0 : mRecorderExtendedStats->getProfileTimes());
+
     status_t err = OK;
     bool encoderSupportsCameraSourceMetaDataMode;
     if ((err = checkVideoEncoderCapabilities(
@@ -1447,6 +1561,9 @@ status_t StagefrightRecorder::setupCameraSource(
 status_t StagefrightRecorder::setupVideoEncoder(
         sp<MediaSource> cameraSource,
         sp<MediaSource> *source) {
+    ExtendedStats::AutoProfile autoProfile(STATS_PROFILE_SET_ENCODER(true) /* isVideo */,
+            mRecorderExtendedStats == NULL ? 0 : mRecorderExtendedStats->getProfileTimes());
+
     source->clear();
 
     sp<AMessage> format = new AMessage();
@@ -1466,6 +1583,10 @@ status_t StagefrightRecorder::setupVideoEncoder(
 
         case VIDEO_ENCODER_VP8:
             format->setString("mime", MEDIA_MIMETYPE_VIDEO_VP8);
+            break;
+
+        case VIDEO_ENCODER_H265:
+            format->setString("mime", MEDIA_MIMETYPE_VIDEO_HEVC);
             break;
 
         default:
@@ -1514,6 +1635,9 @@ status_t StagefrightRecorder::setupVideoEncoder(
     if (mVideoTimeScale > 0) {
         format->setInt32("time-scale", mVideoTimeScale);
     }
+
+    ExtendedUtils::ShellProp::setEncoderProfile(mVideoEncoder, mVideoEncoderProfile);
+
     if (mVideoEncoderProfile != -1) {
         format->setInt32("profile", mVideoEncoderProfile);
     }
@@ -1530,6 +1654,7 @@ status_t StagefrightRecorder::setupVideoEncoder(
         flags |= MediaCodecSource::FLAG_USE_SURFACE_INPUT;
     }
 
+    format->setObject(MEDIA_EXTENDED_STATS, mRecorderExtendedStats);
     sp<MediaCodecSource> encoder =
             MediaCodecSource::Create(mLooper, format, cameraSource, flags);
     if (encoder == NULL) {
@@ -1553,6 +1678,8 @@ status_t StagefrightRecorder::setupVideoEncoder(
 }
 
 status_t StagefrightRecorder::setupAudioEncoder(const sp<MediaWriter>& writer) {
+    ExtendedStats::AutoProfile autoProfile(STATS_PROFILE_SET_ENCODER(false) /* isVideo */,
+            mRecorderExtendedStats == NULL ? 0 : mRecorderExtendedStats->getProfileTimes());
     status_t status = BAD_VALUE;
     if (OK != (status = checkAudioEncoderCapabilities())) {
         return status;
@@ -1564,6 +1691,11 @@ status_t StagefrightRecorder::setupAudioEncoder(const sp<MediaWriter>& writer) {
         case AUDIO_ENCODER_AAC:
         case AUDIO_ENCODER_HE_AAC:
         case AUDIO_ENCODER_AAC_ELD:
+#ifdef ENABLE_AV_ENHANCEMENTS
+        case AUDIO_ENCODER_EVRC:
+        case AUDIO_ENCODER_QCELP:
+#endif
+        case AUDIO_ENCODER_LPCM:
             break;
 
         default:
@@ -1673,6 +1805,8 @@ void StagefrightRecorder::setupMPEG4orWEBMMetaData(sp<MetaData> *meta) {
 }
 
 status_t StagefrightRecorder::pause() {
+    ExtendedStats::AutoProfile autoProfile(STATS_PROFILE_PAUSE,
+            mRecorderExtendedStats == NULL ? 0 : mRecorderExtendedStats->getProfileTimes());
     ALOGV("pause");
     if (mWriter == NULL) {
         return UNKNOWN_ERROR;
@@ -1701,6 +1835,10 @@ status_t StagefrightRecorder::stop() {
     ALOGV("stop");
     status_t err = OK;
 
+    // only profile if we'd started before
+    bool recorderStarted = mStarted;
+    RECORDER_STATS(profileStart, STATS_PROFILE_STOP, recorderStarted);
+
     if (mCaptureTimeLapse && mCameraSourceTimeLapse != NULL) {
         mCameraSourceTimeLapse->startQuickReadReturns();
         mCameraSourceTimeLapse = NULL;
@@ -1717,6 +1855,10 @@ status_t StagefrightRecorder::stop() {
         ::close(mOutputFd);
         mOutputFd = -1;
     }
+    if (mAudioSourceNode != NULL) {
+        mAudioSourceNode.clear();
+        mAudioSourceNode = NULL;
+    }
 
     if (mStarted) {
         mStarted = false;
@@ -1732,13 +1874,18 @@ status_t StagefrightRecorder::stop() {
         addBatteryData(params);
     }
 
+    if (recorderStarted) {
+        RECORDER_STATS(profileStop, STATS_PROFILE_STOP);
+        RECORDER_STATS(dump);
+        RECORDER_STATS(reset);
+    }
+
     return err;
 }
 
 status_t StagefrightRecorder::close() {
     ALOGV("close");
     stop();
-
     return OK;
 }
 
@@ -1758,9 +1905,9 @@ status_t StagefrightRecorder::reset() {
     mVideoHeight   = 144;
     mFrameRate     = -1;
     mVideoBitRate  = 192000;
-    mSampleRate    = 8000;
-    mAudioChannels = 1;
-    mAudioBitRate  = 12200;
+    mSampleRate    = 0;
+    mAudioChannels = 0;
+    mAudioBitRate  = 0;
     mInterleaveDurationUs = 0;
     mIFramesIntervalSec = 1;
     mAudioSourceNode = 0;
@@ -1873,4 +2020,45 @@ status_t StagefrightRecorder::dump(
     ::write(fd, result.string(), result.size());
     return OK;
 }
+
+#ifdef ENABLE_AV_ENHANCEMENTS
+
+status_t StagefrightRecorder::setupFMA2DPWriter() {
+    mWriter = new FMA2DPWriter();
+    return setupRawAudioRecording();
+}
+
+status_t StagefrightRecorder::setupWAVERecording() {
+    CHECK(mOutputFormat == OUTPUT_FORMAT_WAVE);
+    CHECK(mAudioEncoder == AUDIO_ENCODER_LPCM);
+    CHECK(mAudioSource != AUDIO_SOURCE_CNT);
+
+    mWriter = new WAVEWriter(mOutputFd);
+    return setupRawAudioRecording();
+}
+
+status_t StagefrightRecorder::setupExtendedRecording() {
+    CHECK(mOutputFormat == OUTPUT_FORMAT_QCP);
+
+    if (mSampleRate != 8000) {
+        ALOGE("Invalid sampling rate %d used for recording",
+             mSampleRate);
+        return BAD_VALUE;
+    }
+    if (mAudioChannels != 1) {
+        ALOGE("Invalid number of audio channels %d used for recording",
+                mAudioChannels);
+        return BAD_VALUE;
+    }
+
+    if (mAudioSource >= AUDIO_SOURCE_CNT) {
+        ALOGE("Invalid audio source: %d", mAudioSource);
+        return BAD_VALUE;
+    }
+
+    mWriter = new ExtendedWriter(mOutputFd);
+    return setupRawAudioRecording();
+}
+#endif
+
 }  // namespace android

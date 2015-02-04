@@ -35,6 +35,12 @@
 #include <media/stagefright/MediaCodecSource.h>
 #include <media/stagefright/Utils.h>
 
+#ifdef ENABLE_AV_ENHANCEMENTS
+#include <media/stagefright/MediaDefs.h>
+#include <media/stagefright/OMXCodec.h>
+#include <ExtendedUtils.h>
+#endif
+
 namespace android {
 
 struct MediaCodecSource::Puller : public AHandler {
@@ -307,6 +313,10 @@ status_t MediaCodecSource::read(
         MediaBuffer** buffer, const ReadOptions* /* options */) {
     Mutex::Autolock autolock(mOutputBufferLock);
 
+    AString outputMIME;
+    CHECK(mOutputFormat->findString("mime", &outputMIME));
+    RECORDER_STATS(profileStartOnce, STATS_PROFILE_FIRST_BUFFER(mIsVideo));
+
     *buffer = NULL;
     while (mOutputBufferQueue.size() == 0 && !mEncoderReachedEOS) {
         mOutputBufferCond.wait(mOutputBufferLock);
@@ -314,8 +324,11 @@ status_t MediaCodecSource::read(
     if (!mEncoderReachedEOS) {
         *buffer = *mOutputBufferQueue.begin();
         mOutputBufferQueue.erase(mOutputBufferQueue.begin());
+
+        RECORDER_STATS(profileStop, STATS_PROFILE_FIRST_BUFFER(mIsVideo));
         return OK;
     }
+    RECORDER_STATS(profileStop, STATS_PROFILE_FIRST_BUFFER(mIsVideo));
     return mErrorCode;
 }
 
@@ -351,6 +364,41 @@ MediaCodecSource::MediaCodecSource(
 
     if (!(mFlags & FLAG_USE_SURFACE_INPUT)) {
         mPuller = new Puller(source);
+    }
+#ifdef ENABLE_AV_ENHANCEMENTS
+    int32_t bitRate = 0;
+    int32_t sampleRate = 0;
+    int32_t numChannels = 0;
+    int32_t aacProfile = 0;
+    audio_encoder aacEncoder;
+
+    outputFormat->findInt32("bitrate", &bitRate);
+    outputFormat->findInt32("channel-count", &numChannels);
+    outputFormat->findInt32("sample-rate", &sampleRate);
+    outputFormat->findInt32("aac-profile", &aacProfile);
+    ALOGD("bitrate:%d, samplerate:%d, channels:%d",
+                    bitRate, sampleRate, numChannels);
+    if (!strcasecmp(mime.c_str(), MEDIA_MIMETYPE_AUDIO_AAC)) {
+        switch(aacProfile) {
+        case OMX_AUDIO_AACObjectLC:
+            aacEncoder = AUDIO_ENCODER_AAC;
+            ALOGV("AUDIO_ENCODER_AAC");
+            break;
+        case OMX_AUDIO_AACObjectHE:
+            aacEncoder = AUDIO_ENCODER_HE_AAC;
+            ALOGV("AUDIO_ENCODER_HE_AAC");
+            break;
+        case OMX_AUDIO_AACObjectELD:
+            aacEncoder = AUDIO_ENCODER_AAC_ELD;
+            ALOGV("AUDIO_ENCODER_AAC_ELD");
+        }
+        ExtendedUtils::UseQCHWAACEncoder(aacEncoder, numChannels,
+                                          bitRate, sampleRate);
+    }
+#endif
+
+    if (mRecorderExtendedStats == NULL) {
+        outputFormat->findObject(MEDIA_EXTENDED_STATS, (sp<RefBase>*)&mRecorderExtendedStats);
     }
 }
 
@@ -390,8 +438,21 @@ status_t MediaCodecSource::initEncoder() {
     AString outputMIME;
     CHECK(mOutputFormat->findString("mime", &outputMIME));
 
-    mEncoder = MediaCodec::CreateByType(
-            mCodecLooper, outputMIME.c_str(), true /* encoder */);
+    int width, height;
+    mOutputFormat->findInt32("width", &width);
+    mOutputFormat->findInt32("height", &height);
+
+    if (mIsVideo)
+        RECORDER_STATS(logDimensions, width, height);
+
+    //profile allocate node
+    {
+        ExtendedStats::AutoProfile autoProfile(STATS_PROFILE_ALLOCATE_NODE(mIsVideo),
+                                               mRecorderExtendedStats == NULL ? NULL :
+                                               mRecorderExtendedStats->getProfileTimes());
+        mEncoder = MediaCodec::CreateByType(
+                mCodecLooper, outputMIME.c_str(), true /* encoder */);
+    }
 
     if (mEncoder == NULL) {
         return NO_INIT;
@@ -399,6 +460,7 @@ status_t MediaCodecSource::initEncoder() {
 
     ALOGV("output format is '%s'", mOutputFormat->debugString(0).c_str());
 
+    mOutputFormat->setObject(MEDIA_EXTENDED_STATS, mRecorderExtendedStats);
     status_t err = mEncoder->configure(
                 mOutputFormat,
                 NULL /* nativeWindow */,
@@ -680,6 +742,8 @@ status_t MediaCodecSource::doMoreWork(int32_t numInput, int32_t numOutput) {
                         mDecodingTimeQueue.erase(mDecodingTimeQueue.begin());
                     }
                     mbuf->meta_data()->setInt64(kKeyDecodingTime, decodingTimeUs);
+
+                    RECORDER_STATS(logBitRate, outbuf->size(), decodingTimeUs);
 
                     ALOGV("[video] time %" PRId64 " us (%.2f secs), dts/pts diff %" PRId64,
                             timeUs, timeUs / 1E6, decodingTimeUs - timeUs);
