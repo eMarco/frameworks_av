@@ -527,19 +527,19 @@ void PlayerExtendedStats::dump() {
     for (uint32_t i = 0; i < mWidthDimensions.size(); i++) {
         ALOGI("\t\t%d x %d", mWidthDimensions[i], mHeightDimensions[i]);
     }
-    ALOGI("Total frames decoded: %"PRId64"", totalFrames);
-    ALOGI("Frames dropped: %"PRId64" out of %"PRId64" (%0.2f%%)", mFramesDropped, totalFrames, percentDropped * 100);
-    ALOGI("Frames rendered: %"PRId64" out of %"PRId64" (%0.2f%%)", mFramesRendered, totalFrames, (1-percentDropped) * 100);
-    ALOGI("Total playback duration: %"PRId64"ms", mTotalPlayingTime / 1000);
-    ALOGI("Max frames dropped consecutively: %"PRId64"", mMaxConsecutiveFramesDropped);
-    ALOGI("Num occurrences of consecutive drops: %"PRId64"", mNumChainedDrops);
+    ALOGI("Total frames decoded: %" PRId64 "", totalFrames);
+    ALOGI("Frames dropped: %" PRId64 " out of %" PRId64 " (%0.2f%%)", mFramesDropped, totalFrames, percentDropped * 100);
+    ALOGI("Frames rendered: %" PRId64 " out of %" PRId64 " (%0.2f%%)", mFramesRendered, totalFrames, (1-percentDropped) * 100);
+    ALOGI("Total playback duration: %" PRId64 "ms", mTotalPlayingTime / 1000);
+    ALOGI("Max frames dropped consecutively: %" PRId64 "", mMaxConsecutiveFramesDropped);
+    ALOGI("Num occurrences of consecutive drops: %" PRId64 "", mNumChainedDrops);
 
-    ALOGI("Last seek to time: %"PRId64" ms", mLastSeekTime / 1000);
-    ALOGI("Last pause time: %"PRId64" ms", mLastPauseTime/1000);
+    ALOGI("Last seek to time: %" PRId64 " ms", mLastSeekTime / 1000);
+    ALOGI("Last pause time: %" PRId64 " ms", mLastPauseTime/1000);
 
     ALOGI("Average FPS: %0.2f", mTotalPlayingTime == 0 ? 0 : mFramesRendered /(mTotalPlayingTime / 1E6));
-    ALOGI("Peak bitrate: %"PRId64"", mBitRateVector.mMaxBoundedAvg);
-    ALOGI("Average bitrate: %"PRId64"", mBitRateVector.mTotalNumBuffers == 0 ? 0 :
+    ALOGI("Peak bitrate: %" PRId64 "", mBitRateVector.mMaxBoundedAvg);
+    ALOGI("Average bitrate: %" PRId64 "", mBitRateVector.mTotalNumBuffers == 0 ? 0 :
                                         mBitRateVector.mTotalSizeSum / mBitRateVector.mTotalNumBuffers);
 
     ALOGI("EOS(%d)", mEOS ? 1 : 0);
@@ -621,17 +621,17 @@ void RecorderExtendedStats::dump() {
     {
         ALOGI("\t\t%d x %d", mWidthDimensions[i], mHeightDimensions[i]);
     }
-    ALOGI("Total frames: %"PRId64"", totalFrames);
-    ALOGI("Frames dropped: %"PRId64" out of %"PRId64" (%0.2f%%)", mFramesDropped, totalFrames, percentDropped * 100);
-    ALOGI("Frames encoded: %"PRId64" out of %"PRId64" (%0.2f%%)", mFramesEncoded, totalFrames, (1-percentDropped) * 100);
-    ALOGI("Max frames dropped consecutively: %"PRId64"", mMaxConsecutiveFramesDropped);
-    ALOGI("Num occurrences of consecutive drops: %"PRId64"", mNumChainedDrops);
+    ALOGI("Total frames: %" PRId64 "", totalFrames);
+    ALOGI("Frames dropped: %" PRId64 " out of %" PRId64 " (%0.2f%%)", mFramesDropped, totalFrames, percentDropped * 100);
+    ALOGI("Frames encoded: %" PRId64 " out of %" PRId64 " (%0.2f%%)", mFramesEncoded, totalFrames, (1-percentDropped) * 100);
+    ALOGI("Max frames dropped consecutively: %" PRId64 "", mMaxConsecutiveFramesDropped);
+    ALOGI("Num occurrences of consecutive drops: %" PRId64 "", mNumChainedDrops);
 
-    ALOGI("Total recording duration: %"PRId64" ms", mTotalRecordingTime/1000);
-    ALOGI("Last pause time: %"PRId64" ms", mLastPauseTime/1000);
+    ALOGI("Total recording duration: %" PRId64 " ms", mTotalRecordingTime/1000);
+    ALOGI("Last pause time: %" PRId64 " ms", mLastPauseTime/1000);
     ALOGI("Input frame rate: %0.2f", mTotalRecordingTime == 0 ? 0 : mFramesEncoded/(mTotalRecordingTime/1E6));
-    ALOGI("Peak bitrate: %"PRId64"", mBitRateVector.mMaxBoundedAvg);
-    ALOGI("Average bitrate: %"PRId64"", mBitRateVector.mTotalNumBuffers == 0 ? 0 :
+    ALOGI("Peak bitrate: %" PRId64 "", mBitRateVector.mMaxBoundedAvg);
+    ALOGI("Average bitrate: %" PRId64 "", mBitRateVector.mTotalNumBuffers == 0 ? 0 :
                                         mBitRateVector.mTotalSizeSum/mBitRateVector.mTotalNumBuffers);
 
     ALOGI("------- Profile Latencies --------");
