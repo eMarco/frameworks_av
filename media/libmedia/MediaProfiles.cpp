@@ -1,6 +1,4 @@
 /*
-** Copyright (c) 2014, The Linux Foundation. All rights reserved.
-** Not a Contribution.
 **
 ** Copyright 2010, The Android Open Source Project
 **
@@ -29,6 +27,7 @@
 #include <media/MediaProfiles.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <OMX_Video.h>
+#include <OMX_VideoExt.h>
 
 namespace android {
 
@@ -73,13 +72,14 @@ const MediaProfiles::NameToTagMap MediaProfiles::sCamcorderQualityNameMap[] = {
     {"480p", CAMCORDER_QUALITY_480P},
     {"720p", CAMCORDER_QUALITY_720P},
     {"1080p", CAMCORDER_QUALITY_1080P},
+    {"2160p", CAMCORDER_QUALITY_2160P},
     {"qvga", CAMCORDER_QUALITY_QVGA},
-    {"fwvga", CAMCORDER_QUALITY_FWVGA},
-    {"wvga", CAMCORDER_QUALITY_WVGA},
-    {"vga", CAMCORDER_QUALITY_VGA},
     {"wqvga",CAMCORDER_QUALITY_WQVGA},
-    {"4kuhd",CAMCORDER_QUALITY_4kUHD},
+    {"vga", CAMCORDER_QUALITY_VGA},
+    {"wvga", CAMCORDER_QUALITY_WVGA},
+    {"fwvga", CAMCORDER_QUALITY_FWVGA},
     {"4kdci",CAMCORDER_QUALITY_4kDCI},
+    {"hvga",CAMCORDER_QUALITY_HVGA},
 
     {"timelapselow",  CAMCORDER_QUALITY_TIME_LAPSE_LOW},
     {"timelapsehigh", CAMCORDER_QUALITY_TIME_LAPSE_HIGH},
@@ -88,12 +88,12 @@ const MediaProfiles::NameToTagMap MediaProfiles::sCamcorderQualityNameMap[] = {
     {"timelapse480p", CAMCORDER_QUALITY_TIME_LAPSE_480P},
     {"timelapse720p", CAMCORDER_QUALITY_TIME_LAPSE_720P},
     {"timelapse1080p", CAMCORDER_QUALITY_TIME_LAPSE_1080P},
+    {"timelapse2160p", CAMCORDER_QUALITY_TIME_LAPSE_2160P},
     {"timelapseqvga", CAMCORDER_QUALITY_TIME_LAPSE_QVGA},
+    {"timelapsewqvga", CAMCORDER_QUALITY_TIME_LAPSE_WQVGA},
     {"timelapsevga", CAMCORDER_QUALITY_TIME_LAPSE_VGA},
     {"timelapsewvga", CAMCORDER_QUALITY_TIME_LAPSE_WVGA},
     {"timelapsefwvga", CAMCORDER_QUALITY_TIME_LAPSE_FWVGA},
-    {"timelapsewqvga", CAMCORDER_QUALITY_TIME_LAPSE_WQVGA},
-    {"timelapse4kuhd", CAMCORDER_QUALITY_TIME_LAPSE_4kUHD},
     {"timelapse4kdci", CAMCORDER_QUALITY_TIME_LAPSE_4kDCI},
 
     {"highspeedlow",  CAMCORDER_QUALITY_HIGH_SPEED_LOW},
@@ -102,6 +102,11 @@ const MediaProfiles::NameToTagMap MediaProfiles::sCamcorderQualityNameMap[] = {
     {"highspeed720p", CAMCORDER_QUALITY_HIGH_SPEED_720P},
     {"highspeed1080p", CAMCORDER_QUALITY_HIGH_SPEED_1080P},
     {"highspeed2160p", CAMCORDER_QUALITY_HIGH_SPEED_2160P},
+
+    {"hevc720p", CAMCORDER_QUALITY_HEVC720P},
+    {"hevc1080p", CAMCORDER_QUALITY_HEVC1080P},
+    {"hevc4kuhd",CAMCORDER_QUALITY_HEVC4kUHD},
+    {"hevc4kdci",CAMCORDER_QUALITY_HEVC4kDCI},
 };
 
 #if LOG_NDEBUG
@@ -937,6 +942,9 @@ MediaProfiles::createDefaultExportVideoProfiles(MediaProfiles *profiles)
     profiles->mVideoEditorExportProfiles.add(
         new ExportVideoProfile(VIDEO_ENCODER_H264,
             OMX_VIDEO_AVCProfileBaseline, OMX_VIDEO_AVCLevel13));
+    profiles->mVideoEditorExportProfiles.add(
+        new ExportVideoProfile(VIDEO_ENCODER_H265,
+            OMX_VIDEO_AVCProfileBaseline, OMX_VIDEO_HEVCMainTierLevel1));
 }
 
 /*static*/ MediaProfiles*
