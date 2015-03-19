@@ -295,7 +295,6 @@ AudioResampler* AudioResampler::create(audio_format_t format, int inChannelCount
     case QTI_QUALITY:
         ALOGV("Create QTI_QUALITY Resampler = %d",quality);
         resampler = new AudioResamplerQTI(format, inChannelCount, sampleRate);
-        break;
 #endif
 #ifdef SPEEX_RESAMPLER
     case SPEEX_QUALITY:

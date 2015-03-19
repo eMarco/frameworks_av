@@ -128,6 +128,9 @@ LOCAL_C_INCLUDES += hardware/qcom/audio/post_proc
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_DTS_EAGLE)), true)
 LOCAL_CFLAGS += -DHW_ACC_HPX
 endif
+
+ifneq ($(TARGET_DISABLE_SPEEX_RESAMPLER),true)
+    LOCAL_CFLAGS += -DSPEEX_RESAMPLER
 endif
 
 include $(BUILD_SHARED_LIBRARY)
@@ -153,6 +156,13 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libutils \
     liblog
+
+ifneq ($(TARGET_DISABLE_SPEEX_RESAMPLER),true)
+    LOCAL_CFLAGS += -DSPEEX_RESAMPLER
+    LOCAL_SRC_FILES += AudioResamplerSpeex.cpp.arm
+    LOCAL_C_INCLUDES += external/speex/include
+    LOCAL_SHARED_LIBRARIES += libspeexresampler
+endif
 
 LOCAL_MODULE:= test-resample
 
@@ -193,6 +203,13 @@ endif
 endif
 endif
 #QTI Resampler
+
+ifneq ($(TARGET_DISABLE_SPEEX_RESAMPLER),true)
+    LOCAL_CFLAGS += -DSPEEX_RESAMPLER
+    LOCAL_SRC_FILES += AudioResamplerSpeex.cpp.arm
+    LOCAL_C_INCLUDES += external/speex/include
+    LOCAL_SHARED_LIBRARIES += libspeexresampler
+endif
 
 LOCAL_MODULE := libaudioresampler
 
