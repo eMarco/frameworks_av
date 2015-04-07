@@ -55,7 +55,7 @@ struct BpStreamSource : public BpInterface<IStreamSource> {
     virtual void setListener(const sp<IStreamListener> &listener) {
         Parcel data, reply;
         data.writeInterfaceToken(IStreamSource::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(listener));
+        data.writeStrongBinder(listener->asBinder());
         remote()->transact(SET_LISTENER, data, &reply);
     }
 
@@ -64,7 +64,7 @@ struct BpStreamSource : public BpInterface<IStreamSource> {
         data.writeInterfaceToken(IStreamSource::getInterfaceDescriptor());
         data.writeInt64(static_cast<int64_t>(buffers.size()));
         for (size_t i = 0; i < buffers.size(); ++i) {
-            data.writeStrongBinder(IInterface::asBinder(buffers.itemAt(i)));
+            data.writeStrongBinder(buffers.itemAt(i)->asBinder());
         }
         remote()->transact(SET_BUFFERS, data, &reply);
     }

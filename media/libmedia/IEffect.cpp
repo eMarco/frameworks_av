@@ -190,7 +190,7 @@ status_t BnEffect::onTransact(
 
         case GET_CBLK: {
             CHECK_INTERFACE(IEffect, data, reply);
-            reply->writeStrongBinder(IInterface::asBinder(getCblk()));
+            reply->writeStrongBinder(getCblk()->asBinder());
             return NO_ERROR;
         } break;
 

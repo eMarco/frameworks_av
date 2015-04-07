@@ -75,7 +75,7 @@ public:
         ALOGV("setPreviewTarget");
         Parcel data, reply;
         data.writeInterfaceToken(ICamera::getInterfaceDescriptor());
-        sp<IBinder> b(IInterface::asBinder(bufferProducer));
+        sp<IBinder> b(bufferProducer != NULL ? bufferProducer->asBinder() : NULL);
         data.writeStrongBinder(b);
         remote()->transact(SET_PREVIEW_TARGET, data, &reply);
         return reply.readInt32();
@@ -98,7 +98,7 @@ public:
         ALOGV("setPreviewCallbackTarget");
         Parcel data, reply;
         data.writeInterfaceToken(ICamera::getInterfaceDescriptor());
-        sp<IBinder> b(IInterface::asBinder(callbackProducer));
+        sp<IBinder> b(callbackProducer->asBinder());
         data.writeStrongBinder(b);
         remote()->transact(SET_PREVIEW_CALLBACK_TARGET, data, &reply);
         return reply.readInt32();
@@ -147,7 +147,7 @@ public:
         ALOGV("releaseRecordingFrame");
         Parcel data, reply;
         data.writeInterfaceToken(ICamera::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(mem));
+        data.writeStrongBinder(mem->asBinder());
         remote()->transact(RELEASE_RECORDING_FRAME, data, &reply);
     }
 
@@ -250,7 +250,7 @@ public:
     {
         Parcel data, reply;
         data.writeInterfaceToken(ICamera::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(cameraClient));
+        data.writeStrongBinder(cameraClient->asBinder());
         remote()->transact(CONNECT, data, &reply);
         return reply.readInt32();
     }

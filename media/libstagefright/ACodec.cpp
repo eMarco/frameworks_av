@@ -4854,7 +4854,7 @@ void ACodec::UninitializedState::stateEntered() {
     ALOGV("Now uninitialized");
 
     if (mDeathNotifier != NULL) {
-        IInterface::asBinder(mCodec->mOMX)->unlinkToDeath(mDeathNotifier);
+        mCodec->mOMX->asBinder()->unlinkToDeath(mDeathNotifier);
         mDeathNotifier.clear();
     }
 
@@ -4947,7 +4947,7 @@ bool ACodec::UninitializedState::onAllocateComponent(const sp<AMessage> &msg) {
     sp<AMessage> notify = new AMessage(kWhatOMXDied, mCodec->id());
 
     mDeathNotifier = new DeathNotifier(notify);
-    if (IInterface::asBinder(omx)->linkToDeath(mDeathNotifier) != OK) {
+    if (omx->asBinder()->linkToDeath(mDeathNotifier) != OK) {
         // This was a local binder, if it dies so do we, we won't care
         // about any notifications in the afterlife.
         mDeathNotifier.clear();

@@ -58,7 +58,7 @@ public:
         Parcel data, reply;
         data.writeInterfaceToken(ICameraClient::getInterfaceDescriptor());
         data.writeInt32(msgType);
-        data.writeStrongBinder(IInterface::asBinder(imageData));
+        data.writeStrongBinder(imageData->asBinder());
         if (metadata) {
             data.writeInt32(metadata->number_of_faces);
             data.write(metadata->faces, sizeof(camera_face_t) * metadata->number_of_faces);
@@ -74,7 +74,7 @@ public:
         data.writeInterfaceToken(ICameraClient::getInterfaceDescriptor());
         data.writeInt64(timestamp);
         data.writeInt32(msgType);
-        data.writeStrongBinder(IInterface::asBinder(imageData));
+        data.writeStrongBinder(imageData->asBinder());
         remote()->transact(DATA_CALLBACK_TIMESTAMP, data, &reply, IBinder::FLAG_ONEWAY);
     }
 };

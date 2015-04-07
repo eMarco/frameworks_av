@@ -106,7 +106,7 @@ status_t CaptureRequest::writeToParcel(Parcel* parcel) const {
 
         sp<IBinder> binder;
         if (surface != 0) {
-            binder = IInterface::asBinder(surface->getIGraphicBufferProducer());
+            binder = surface->getIGraphicBufferProducer()->asBinder();
         }
 
         // not sure if readParcelableArray does this, hard to tell from source

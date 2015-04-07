@@ -137,7 +137,7 @@ public:
                                       int64_t pts) {
         Parcel data, reply;
         data.writeInterfaceToken(IAudioTrack::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(buffer));
+        data.writeStrongBinder(buffer->asBinder());
         data.writeInt64(pts);
         status_t status = remote()->transact(QUEUE_TIMED_BUFFER,
                                              data, &reply);
@@ -207,7 +207,7 @@ status_t BnAudioTrack::onTransact(
     switch (code) {
         case GET_CBLK: {
             CHECK_INTERFACE(IAudioTrack, data, reply);
-            reply->writeStrongBinder(IInterface::asBinder(getCblk()));
+            reply->writeStrongBinder(getCblk()->asBinder());
             return NO_ERROR;
         } break;
         case START: {
@@ -241,7 +241,7 @@ status_t BnAudioTrack::onTransact(
             status_t status = allocateTimedBuffer(data.readInt64(), &buffer);
             reply->writeInt32(status);
             if (status == NO_ERROR) {
-                reply->writeStrongBinder(IInterface::asBinder(buffer));
+                reply->writeStrongBinder(buffer->asBinder());
             }
             return NO_ERROR;
         } break;

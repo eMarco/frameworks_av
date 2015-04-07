@@ -346,7 +346,7 @@ status_t DrmManagerClientImpl::notify(const DrmInfoEvent& event) {
 DrmManagerClientImpl::DeathNotifier::~DeathNotifier() {
     Mutex::Autolock lock(sMutex);
     if (NULL != sDrmManagerService.get()) {
-        IInterface::asBinder(sDrmManagerService)->unlinkToDeath(this);
+        sDrmManagerService->asBinder()->unlinkToDeath(this);
     }
 }
 

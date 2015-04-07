@@ -1211,7 +1211,7 @@ void AudioFlinger::registerClient(const sp<IAudioFlingerClient>& client)
 
             mNotificationClients.add(pid, notificationClient);
 
-            sp<IBinder> binder = IInterface::asBinder(client);
+            sp<IBinder> binder = client->asBinder();
             binder->linkToDeath(notificationClient);
             clientAdded = true;
         }

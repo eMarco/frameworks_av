@@ -143,7 +143,7 @@ status_t SoundTriggerHwService::attach(const sound_trigger_module_handle_t handl
     sp<Module> module = mModules.valueAt(index);
 
     module->setClient(client);
-    IInterface::asBinder(client)->linkToDeath(module);
+    client->asBinder()->linkToDeath(module);
     moduleInterface = module;
 
     module->setCaptureState_l(mCaptureState);
@@ -510,7 +510,7 @@ void SoundTriggerHwService::Module::detach() {
         mModels.clear();
     }
     if (mClient != 0) {
-        IInterface::asBinder(mClient)->unlinkToDeath(this);
+        mClient->asBinder()->unlinkToDeath(this);
     }
     sp<SoundTriggerHwService> service = mService.promote();
     if (service == 0) {

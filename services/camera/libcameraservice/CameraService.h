@@ -273,7 +273,7 @@ public:
         }
 
         virtual sp<IBinder> asBinderWrapper() {
-            return asBinder(this);
+            return asBinder();
         }
 
     protected:

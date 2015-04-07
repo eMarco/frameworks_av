@@ -71,7 +71,7 @@ public:
             const sp<IMediaPlayerClient>& client, int audioSessionId) {
         Parcel data, reply;
         data.writeInterfaceToken(IMediaPlayerService::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(client));
+        data.writeStrongBinder(client->asBinder());
         data.writeInt32(audioSessionId);
 
         remote()->transact(CREATE, data, &reply);
@@ -133,7 +133,7 @@ public:
     {
         Parcel data, reply;
         data.writeInterfaceToken(IMediaPlayerService::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(client));
+        data.writeStrongBinder(client->asBinder());
         data.writeString8(iface);
         remote()->transact(LISTEN_FOR_REMOTE_DISPLAY, data, &reply);
         return interface_cast<IRemoteDisplay>(reply.readStrongBinder());
@@ -161,44 +161,44 @@ status_t BnMediaPlayerService::onTransact(
                 interface_cast<IMediaPlayerClient>(data.readStrongBinder());
             int audioSessionId = data.readInt32();
             sp<IMediaPlayer> player = create(client, audioSessionId);
-            reply->writeStrongBinder(IInterface::asBinder(player));
+            reply->writeStrongBinder(player->asBinder());
             return NO_ERROR;
         } break;
         case CREATE_MEDIA_RECORDER: {
             CHECK_INTERFACE(IMediaPlayerService, data, reply);
             sp<IMediaRecorder> recorder = createMediaRecorder();
-            reply->writeStrongBinder(IInterface::asBinder(recorder));
+            reply->writeStrongBinder(recorder->asBinder());
             return NO_ERROR;
         } break;
         case CREATE_METADATA_RETRIEVER: {
             CHECK_INTERFACE(IMediaPlayerService, data, reply);
             sp<IMediaMetadataRetriever> retriever = createMetadataRetriever();
-            reply->writeStrongBinder(IInterface::asBinder(retriever));
+            reply->writeStrongBinder(retriever->asBinder());
             return NO_ERROR;
         } break;
         case GET_OMX: {
             CHECK_INTERFACE(IMediaPlayerService, data, reply);
             sp<IOMX> omx = getOMX();
-            reply->writeStrongBinder(IInterface::asBinder(omx));
+            reply->writeStrongBinder(omx->asBinder());
             return NO_ERROR;
         } break;
         case MAKE_CRYPTO: {
             CHECK_INTERFACE(IMediaPlayerService, data, reply);
             sp<ICrypto> crypto = makeCrypto();
-            reply->writeStrongBinder(IInterface::asBinder(crypto));
+            reply->writeStrongBinder(crypto->asBinder());
             return NO_ERROR;
         } break;
         case MAKE_DRM: {
             CHECK_INTERFACE(IMediaPlayerService, data, reply);
             sp<IDrm> drm = makeDrm();
-            reply->writeStrongBinder(IInterface::asBinder(drm));
+            reply->writeStrongBinder(drm->asBinder());
             return NO_ERROR;
         } break;
         case MAKE_HDCP: {
             CHECK_INTERFACE(IMediaPlayerService, data, reply);
             bool createEncryptionModule = data.readInt32();
             sp<IHDCP> hdcp = makeHDCP(createEncryptionModule);
-            reply->writeStrongBinder(IInterface::asBinder(hdcp));
+            reply->writeStrongBinder(hdcp->asBinder());
             return NO_ERROR;
         } break;
         case ADD_BATTERY_DATA: {
@@ -218,13 +218,13 @@ status_t BnMediaPlayerService::onTransact(
                     interface_cast<IRemoteDisplayClient>(data.readStrongBinder()));
             String8 iface(data.readString8());
             sp<IRemoteDisplay> display(listenForRemoteDisplay(client, iface));
-            reply->writeStrongBinder(IInterface::asBinder(display));
+            reply->writeStrongBinder(display->asBinder());
             return NO_ERROR;
         } break;
         case GET_CODEC_LIST: {
             CHECK_INTERFACE(IMediaPlayerService, data, reply);
             sp<IMediaCodecList> mcl = getCodecList();
-            reply->writeStrongBinder(IInterface::asBinder(mcl));
+            reply->writeStrongBinder(mcl->asBinder());
             return NO_ERROR;
         } break;
         default:

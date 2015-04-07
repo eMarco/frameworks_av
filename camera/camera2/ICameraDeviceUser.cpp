@@ -219,7 +219,7 @@ public:
 
         data.writeInt32(1); // marker that bufferProducer is not null
         data.writeString16(String16("unknown_name")); // name of surface
-        sp<IBinder> b(IInterface::asBinder(bufferProducer));
+        sp<IBinder> b(bufferProducer->asBinder());
         data.writeStrongBinder(b);
 
         remote()->transact(CREATE_STREAM, data, &reply);

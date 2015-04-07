@@ -107,7 +107,7 @@ AudioRecord::~AudioRecord()
             mAudioRecordThread->requestExitAndWait();
             mAudioRecordThread.clear();
         }
-        IInterface::asBinder(mAudioRecord)->unlinkToDeath(mDeathNotifier, this);
+        mAudioRecord->asBinder()->unlinkToDeath(mDeathNotifier, this);
         mAudioRecord.clear();
         mCblkMemory.clear();
         mBufferMemory.clear();
@@ -525,7 +525,7 @@ status_t AudioRecord::openRecord_l(size_t epoch)
 
     // invariant that mAudioRecord != 0 is true only after set() returns successfully
     if (mAudioRecord != 0) {
-        IInterface::asBinder(mAudioRecord)->unlinkToDeath(mDeathNotifier, this);
+        mAudioRecord->asBinder()->unlinkToDeath(mDeathNotifier, this);
         mDeathNotifier.clear();
     }
     mAudioRecord = record;
@@ -575,7 +575,7 @@ status_t AudioRecord::openRecord_l(size_t epoch)
     mProxy->setMinimum(mNotificationFramesAct);
 
     mDeathNotifier = new DeathNotifier(this);
-    IInterface::asBinder(mAudioRecord)->linkToDeath(mDeathNotifier, this);
+    mAudioRecord->asBinder()->linkToDeath(mDeathNotifier, this);
 
     return NO_ERROR;
     }

@@ -107,7 +107,7 @@ sp<TCam> CameraBase<TCam, TCamTraits>::connect(int cameraId,
                                              /*out*/ c->mCamera);
     }
     if (status == OK && c->mCamera != 0) {
-        IInterface::asBinder(c->mCamera)->linkToDeath(c);
+        c->mCamera->asBinder()->linkToDeath(c);
         c->mStatus = NO_ERROR;
     } else {
         ALOGW("An error occurred while connecting to camera: %d", cameraId);
@@ -122,7 +122,7 @@ void CameraBase<TCam, TCamTraits>::disconnect()
     ALOGV("%s: disconnect", __FUNCTION__);
     if (mCamera != 0) {
         mCamera->disconnect();
-        IInterface::asBinder(mCamera)->unlinkToDeath(this);
+        mCamera->asBinder()->unlinkToDeath(this);
         mCamera = 0;
     }
     ALOGV("%s: disconnect (done)", __FUNCTION__);

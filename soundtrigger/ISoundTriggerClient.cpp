@@ -44,7 +44,7 @@ public:
     {
         Parcel data, reply;
         data.writeInterfaceToken(ISoundTriggerClient::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(eventMemory));
+        data.writeStrongBinder(eventMemory->asBinder());
         remote()->transact(ON_RECOGNITION_EVENT,
                            data,
                            &reply);
@@ -54,7 +54,7 @@ public:
     {
         Parcel data, reply;
         data.writeInterfaceToken(ISoundTriggerClient::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(eventMemory));
+        data.writeStrongBinder(eventMemory->asBinder());
         remote()->transact(ON_SOUNDMODEL_EVENT,
                            data,
                            &reply);
@@ -63,7 +63,7 @@ public:
     {
         Parcel data, reply;
         data.writeInterfaceToken(ISoundTriggerClient::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(eventMemory));
+        data.writeStrongBinder(eventMemory->asBinder());
         remote()->transact(ON_SERVICE_STATE_CHANGE,
                            data,
                            &reply);

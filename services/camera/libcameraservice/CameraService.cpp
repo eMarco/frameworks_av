@@ -755,7 +755,7 @@ status_t CameraService::connect(
         Mutex::Autolock lock(mServiceLock);
         sp<BasicClient> clientTmp;
         if (!canConnectUnsafe(cameraId, clientPackageName,
-                              IInterface::asBinder(cameraClient),
+                              cameraClient->asBinder(),
                               /*out*/clientTmp)) {
             return -EBUSY;
         } else if (client.get() != NULL) {
@@ -818,7 +818,7 @@ status_t CameraService::connectLegacy(
         Mutex::Autolock lock(mServiceLock);
         sp<BasicClient> clientTmp;
         if (!canConnectUnsafe(cameraId, clientPackageName,
-                              IInterface::asBinder(cameraClient),
+                              cameraClient->asBinder(),
                               /*out*/clientTmp)) {
             return -EBUSY;
         } else if (client.get() != NULL) {
@@ -889,7 +889,7 @@ status_t CameraService::connectPro(
         {
             sp<BasicClient> client;
             if (!canConnectUnsafe(cameraId, clientPackageName,
-                                  IInterface::asBinder(cameraCb),
+                                  cameraCb->asBinder(),
                                   /*out*/client)) {
                 return -EBUSY;
             }
@@ -962,7 +962,7 @@ status_t CameraService::connectDevice(
         {
             sp<BasicClient> client;
             if (!canConnectUnsafe(cameraId, clientPackageName,
-                                  IInterface::asBinder(cameraCb),
+                                  cameraCb->asBinder(),
                                   /*out*/client)) {
                 return -EBUSY;
             }
@@ -1024,7 +1024,7 @@ status_t CameraService::addListener(
 
     Vector<sp<ICameraServiceListener> >::iterator it, end;
     for (it = mListenerList.begin(); it != mListenerList.end(); ++it) {
-        if (IInterface::asBinder(*it) == IInterface::asBinder(listener)) {
+        if ((*it)->asBinder() == listener->asBinder()) {
             ALOGW("%s: Tried to add listener %p which was already subscribed",
                   __FUNCTION__, listener.get());
             return ALREADY_EXISTS;
@@ -1057,7 +1057,7 @@ status_t CameraService::removeListener(
 
     Vector<sp<ICameraServiceListener> >::iterator it;
     for (it = mListenerList.begin(); it != mListenerList.end(); ++it) {
-        if (IInterface::asBinder(*it) == IInterface::asBinder(listener)) {
+        if ((*it)->asBinder() == listener->asBinder()) {
             mListenerList.erase(it);
             return OK;
         }
@@ -1170,7 +1170,7 @@ void CameraService::removeClientByRemote(const wp<IBinder>& remoteBinder) {
             // Found our camera, clear and leave.
             LOG1("removeClient: clear pro %p", clientPro.get());
 
-            IInterface::asBinder(clientPro->getRemoteCallback())->unlinkToDeath(this);
+            clientPro->getRemoteCallback()->asBinder()->unlinkToDeath(this);
         }
     }
 
@@ -1373,7 +1373,7 @@ CameraService::Client::Client(const sp<CameraService>& cameraService,
         int clientPid, uid_t clientUid,
         int servicePid) :
         CameraService::BasicClient(cameraService,
-                IInterface::asBinder(cameraClient),
+                cameraClient != NULL ? cameraClient->asBinder() : NULL,
                 clientPackageName,
                 cameraId, cameraFacing,
                 clientPid, clientUid,
@@ -1584,7 +1584,7 @@ CameraService::ProClient::ProClient(const sp<CameraService>& cameraService,
         int clientPid,
         uid_t clientUid,
         int servicePid)
-        : CameraService::BasicClient(cameraService, IInterface::asBinder(remoteCallback),
+        : CameraService::BasicClient(cameraService, remoteCallback->asBinder(),
                 clientPackageName, cameraId, cameraFacing,
                 clientPid,  clientUid, servicePid)
 {

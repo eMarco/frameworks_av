@@ -65,7 +65,7 @@ public:
     {
         Parcel data, reply;
         data.writeInterfaceToken(IProCameraUser::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(cameraClient));
+        data.writeStrongBinder(cameraClient->asBinder());
         remote()->transact(CONNECT, data, &reply);
         return reply.readInt32();
     }
@@ -150,7 +150,7 @@ public:
         data.writeInt32(height);
         data.writeInt32(format);
 
-        sp<IBinder> b(IInterface::asBinder(bufferProducer));
+        sp<IBinder> b(bufferProducer->asBinder());
         data.writeStrongBinder(b);
 
         remote()->transact(CREATE_STREAM, data, &reply);

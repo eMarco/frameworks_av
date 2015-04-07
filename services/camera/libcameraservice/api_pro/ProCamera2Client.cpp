@@ -276,7 +276,7 @@ status_t ProCamera2Client::createStream(int width, int height, int format,
     sp<IBinder> binder;
     sp<ANativeWindow> window;
     if (bufferProducer != 0) {
-        binder = IInterface::asBinder(bufferProducer);
+        binder = bufferProducer->asBinder();
         window = new Surface(bufferProducer);
     }
 
@@ -335,7 +335,7 @@ status_t ProCamera2Client::dump(int fd, const Vector<String16>& args) {
     result.appendFormat("ProCamera2Client[%d] (%p) PID: %d, dump:\n",
             mCameraId,
             (getRemoteCallback() != NULL ?
-                    IInterface::asBinder(getRemoteCallback()).get() : NULL),
+                    getRemoteCallback()->asBinder().get() : NULL),
             mClientPid);
     result.append("  State:\n");
     write(fd, result.string(), result.size());

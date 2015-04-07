@@ -52,7 +52,7 @@ TimedEventQueue::TimedEventQueue()
 TimedEventQueue::~TimedEventQueue() {
     stop();
     if (mPowerManager != 0) {
-        sp<IBinder> binder = IInterface::asBinder(mPowerManager);
+        sp<IBinder> binder = mPowerManager->asBinder();
         binder->unlinkToDeath(mDeathRecipient);
     }
 }

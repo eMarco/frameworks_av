@@ -628,7 +628,7 @@ public:
     {
         Parcel data, reply;
         data.writeInterfaceToken(IAudioPolicyService::getInterfaceDescriptor());
-        data.writeStrongBinder(IInterface::asBinder(client));
+        data.writeStrongBinder(client->asBinder());
         remote()->transact(REGISTER_CLIENT, data, &reply);
     }
 

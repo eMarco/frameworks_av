@@ -194,7 +194,7 @@ AudioTrack::~AudioTrack()
             mAudioTrackThread->requestExitAndWait();
             mAudioTrackThread.clear();
         }
-        IInterface::asBinder(mAudioTrack)->unlinkToDeath(mDeathNotifier, this);
+        mAudioTrack->asBinder()->unlinkToDeath(mDeathNotifier, this);
         mAudioTrack.clear();
         mCblkMemory.clear();
         mSharedBuffer.clear();
@@ -1138,7 +1138,7 @@ status_t AudioTrack::createTrack_l()
     }
     // invariant that mAudioTrack != 0 is true only after set() returns successfully
     if (mAudioTrack != 0) {
-        IInterface::asBinder(mAudioTrack)->unlinkToDeath(mDeathNotifier, this);
+        mAudioTrack->asBinder()->unlinkToDeath(mDeathNotifier, this);
         mDeathNotifier.clear();
     }
     mAudioTrack = track;
@@ -1245,7 +1245,7 @@ status_t AudioTrack::createTrack_l()
     mProxy->setMinimum(mNotificationFramesAct);
 
     mDeathNotifier = new DeathNotifier(this);
-    IInterface::asBinder(mAudioTrack)->linkToDeath(mDeathNotifier, this);
+    mAudioTrack->asBinder()->linkToDeath(mDeathNotifier, this);
 
     return NO_ERROR;
     }
