@@ -16,6 +16,7 @@
 
 #include <new>
 #include <cutils/atomic.h>
+#include <cutils/atomic-inline.h> // for android_memory_barrier()
 #include <media/SingleStateQueue.h>
 
 namespace android {
