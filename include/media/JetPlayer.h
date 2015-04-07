@@ -22,7 +22,6 @@
 #include <libsonivox/jet.h>
 #include <libsonivox/eas_types.h>
 #include <media/AudioTrack.h>
-#include <media/MidiIoWrapper.h>
 
 
 namespace android {
@@ -87,12 +86,14 @@ private:
 
     int                 mMaxTracks; // max number of MIDI tracks, usually 32
     EAS_DATA_HANDLE     mEasData;
-    sp<MidiIoWrapper>   mIoWrapper;
+    EAS_FILE_LOCATOR    mEasJetFileLoc;
     EAS_PCM*            mAudioBuffer;// EAS renders the MIDI data into this buffer,
     sp<AudioTrack>      mAudioTrack; // and we play it in this audio track
     int                 mTrackBufferSize;
     S_JET_STATUS        mJetStatus;
     S_JET_STATUS        mPreviousJetStatus;
+
+    char                mJetFilePath[PATH_MAX];
 
     class JetPlayerThread : public Thread {
     public:

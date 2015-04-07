@@ -20,7 +20,6 @@
 
 #include <media/MediaPlayerInterface.h>
 #include <libsonivox/eas.h>
-#include <media/MidiIoWrapper.h>
 
 namespace android {
 
@@ -64,6 +63,7 @@ public:
         return INVALID_OPERATION;
     }
 
+
 private:
             status_t    createOutputTrack();
             status_t    reset_nosync();
@@ -78,7 +78,7 @@ private:
     EAS_I32             mPlayTime;
     EAS_I32             mDuration;
     EAS_STATE           mState;
-    sp<MidiIoWrapper>   mIoWrapper;
+    EAS_FILE            mFileLocator;
     audio_stream_type_t mStreamType;
     bool                mLoop;
     volatile bool       mExit;

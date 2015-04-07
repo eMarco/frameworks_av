@@ -36,6 +36,7 @@ JetPlayer::JetPlayer(void *javaJetPlayer, int maxTracks, int trackBufferSize) :
         mPaused(false),
         mMaxTracks(maxTracks),
         mEasData(NULL),
+        mEasJetFileLoc(NULL),
         mTrackBufferSize(trackBufferSize)
 {
     ALOGV("JetPlayer constructor");
@@ -132,7 +133,10 @@ int JetPlayer::release()
         JET_Shutdown(mEasData);
         EAS_Shutdown(mEasData);
     }
-    mIoWrapper.clear();
+    if (mEasJetFileLoc) {
+        free(mEasJetFileLoc);
+        mEasJetFileLoc = NULL;
+    }
     if (mAudioTrack != 0) {
         mAudioTrack->stop();
         mAudioTrack->flush();
@@ -323,9 +327,16 @@ int JetPlayer::loadFromFile(const char* path)
 
     Mutex::Autolock lock(mMutex);
 
-    mIoWrapper = new MidiIoWrapper(path);
+    mEasJetFileLoc = (EAS_FILE_LOCATOR) malloc(sizeof(EAS_FILE));
+    strncpy(mJetFilePath, path, sizeof(mJetFilePath));
+    mJetFilePath[sizeof(mJetFilePath) - 1] = '\0';
+    mEasJetFileLoc->path = mJetFilePath;
 
-    EAS_RESULT result = JET_OpenFile(mEasData, mIoWrapper->getLocator());
+    mEasJetFileLoc->fd = 0;
+    mEasJetFileLoc->length = 0;
+    mEasJetFileLoc->offset = 0;
+
+    EAS_RESULT result = JET_OpenFile(mEasData, mEasJetFileLoc);
     if (result != EAS_SUCCESS)
         mState = EAS_STATE_ERROR;
     else
@@ -341,9 +352,13 @@ int JetPlayer::loadFromFD(const int fd, const long long offset, const long long 
 
     Mutex::Autolock lock(mMutex);
 
-    mIoWrapper = new MidiIoWrapper(fd, offset, length);
+    mEasJetFileLoc = (EAS_FILE_LOCATOR) malloc(sizeof(EAS_FILE));
+    mEasJetFileLoc->fd = fd;
+    mEasJetFileLoc->offset = offset;
+    mEasJetFileLoc->length = length;
+    mEasJetFileLoc->path = NULL;
 
-    EAS_RESULT result = JET_OpenFile(mEasData, mIoWrapper->getLocator());
+    EAS_RESULT result = JET_OpenFile(mEasData, mEasJetFileLoc);
     if (result != EAS_SUCCESS)
         mState = EAS_STATE_ERROR;
     else
@@ -444,6 +459,7 @@ int JetPlayer::clearQueue()
 //-------------------------------------------------------------------------------------------------
 void JetPlayer::dump()
 {
+    ALOGE("JetPlayer dump: JET file=%s", mEasJetFileLoc->path);
 }
 
 void JetPlayer::dumpJetStatus(S_JET_STATUS* pJetStatus)
