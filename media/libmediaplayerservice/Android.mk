@@ -15,6 +15,8 @@ LOCAL_SRC_FILES:=               \
     MediaPlayerService.cpp      \
     MediaRecorderClient.cpp     \
     MetadataRetrieverClient.cpp \
+    MidiFile.cpp                \
+    MidiMetadataRetriever.cpp   \
     RemoteDisplay.cpp           \
     SharedLibrary.cpp           \
     StagefrightPlayer.cpp       \

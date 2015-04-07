@@ -29,7 +29,6 @@
 #include "include/WVMExtractor.h"
 #include "include/FLACExtractor.h"
 #include "include/AACExtractor.h"
-#include "include/MidiExtractor.h"
 
 #include "matroska/MatroskaExtractor.h"
 
@@ -132,8 +131,6 @@ retry:
         ret = new AACExtractor(source, meta);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MPEG2PS)) {
         ret = new MPEG2PSExtractor(source);
-    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_MIDI)) {
-        ret = new MidiExtractor(source);
     } else if (sPlugin.create) {
         ret = sPlugin.create(source, mime, meta);
     }
