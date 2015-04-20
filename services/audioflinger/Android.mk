@@ -128,6 +128,7 @@ LOCAL_C_INCLUDES += hardware/qcom/audio/post_proc
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_DTS_EAGLE)), true)
 LOCAL_CFLAGS += -DHW_ACC_HPX
 endif
+endif
 
 ifneq ($(TARGET_DISABLE_SPEEX_RESAMPLER),true)
     LOCAL_CFLAGS += -DSPEEX_RESAMPLER
