@@ -23,10 +23,6 @@
 #include <media/AudioSystem.h>
 #include <media/AudioTrack.h>
 
-#if __cplusplus < 201103L && !defined(constexpr)
-#define constexpr const
-#endif
-
 namespace android {
 
 class ToneGenerator {
