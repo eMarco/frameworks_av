@@ -8,6 +8,8 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_CFLAGS+= -O2 -fvisibility=hidden
 
+LOCAL_CFLAGS += -fno-strict-aliasing
+
 LOCAL_SHARED_LIBRARIES := \
 	libcutils \
 	liblog \

@@ -22,6 +22,8 @@ endif
 
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS += -fno-strict-aliasing
+
 LOCAL_SRC_FILES:= \
     AudioTrack.cpp \
     AudioTrackShared.cpp \
