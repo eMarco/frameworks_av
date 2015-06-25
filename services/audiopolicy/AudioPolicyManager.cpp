@@ -2280,16 +2280,9 @@ status_t AudioPolicyManager::getInputForAttr(const audio_attributes_t *attr,
         } else {
             *inputType = API_INPUT_LEGACY;
         }
-
-        /*The below code is intentionally not ported.
-        It's not needed to update the channel mask based on source because
-        the source is sent to audio HAL through set_parameters().
-        For example, if source = VOICE_CALL, does not mean we need to capture two channels.
-        If the sound recorder app selects AMR as encoding format but source as RX+TX,
-        we need both in ONE channel. So we use the channels set by the app and use source
-        to tell the driver what needs to captured (RX only, TX only, or RX+TX ).*/
+#ifdef QCOM_DIRECTTRACK
         // adapt channel selection to input source
-        /*switch (inputSource) {
+        switch (inputSource) {
         case AUDIO_SOURCE_VOICE_UPLINK:
             channelMask |= AUDIO_CHANNEL_IN_VOICE_UPLINK;
             break;
@@ -2301,8 +2294,8 @@ status_t AudioPolicyManager::getInputForAttr(const audio_attributes_t *attr,
             break;
         default:
             break;
-        }*/
-
+        }
+#endif
         if (inputSource == AUDIO_SOURCE_HOTWORD) {
             ssize_t index = mSoundTriggerSessions.indexOfKey(session);
             if (index >= 0) {
@@ -5953,31 +5946,8 @@ uint32_t AudioPolicyManager::checkDeviceMuteStrategies(sp<AudioOutputDescriptor>
     // temporary mute output if device selection changes to avoid volume bursts due to
     // different per device volumes
     if (outputDesc->isActive() && (device != prevDevice)) {
-        bool IsMutiHwModuleActive = false;
-
-        for (size_t i = 0; i < mOutputs.size(); i++) {
-            sp<AudioOutputDescriptor> desc = mOutputs.valueAt(i);
-
-            // update total number active HAL modules which can be
-            // used for caluclating mutewait delays
-            if ((desc != outputDesc) && desc->isActive() &&
-                !outputDesc->sharesHwModuleWith(desc)) {
-                ALOGV("FOUND multi HAL modules active");
-                IsMutiHwModuleActive =  true;
-            }
-        }
-
-        if (IsMutiHwModuleActive) {
-	        if (muteWaitMs < outputDesc->latency() * 2) {
-	            muteWaitMs = outputDesc->latency() * 2;
-            }
-        } else {
-            // If only one HAL is active no need to delay twice the latency
-            // for device switch one and half time should be good enough
-            if (muteWaitMs < outputDesc->latency() * 3/2) {
-                ALOGV("Reducting mutewait delay to 3/2 times");
-                muteWaitMs = outputDesc->latency() * 3/2;
-            }
+        if (muteWaitMs < outputDesc->latency() * 2) {
+            muteWaitMs = outputDesc->latency() * 2;
         }
         for (size_t i = 0; i < NUM_STRATEGIES; i++) {
             if (outputDesc->isStrategyActive((routing_strategy)i)) {
@@ -6750,7 +6720,7 @@ const AudioPolicyManager::VolumeCurvePoint
         sDefaultMediaVolumeCurve, // DEVICE_CATEGORY_EARPIECE
         sDefaultMediaVolumeCurve  // DEVICE_CATEGORY_EXT_MEDIA
     },
-#ifdef QCOM_HARDWARE
+#if defined(QCOM_HARDWARE) && !defined(QCOM_DIRECTTRACK)
     { // AUDIO_STREAM_INCALL_MUSIC
         sDefaultMediaVolumeCurve, // DEVICE_CATEGORY_HEADSET
         sSpeakerMediaVolumeCurve, // DEVICE_CATEGORY_SPEAKER
