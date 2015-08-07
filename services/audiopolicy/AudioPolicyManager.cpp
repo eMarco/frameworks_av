@@ -890,21 +890,9 @@ void AudioPolicyManager::setPhoneState(audio_mode_t state)
 
 #ifdef VOICE_CONCURRENCY
     int voice_call_state = 0;
-    char propValue[PROPERTY_VALUE_MAX];
-    bool prop_playback_enabled = false, prop_rec_enabled=false, prop_voip_enabled = false;
-
-    if(property_get("voice.playback.conc.disabled", propValue, NULL)) {
-        prop_playback_enabled = atoi(propValue) || !strncmp("true", propValue, 4);
-    }
-
-    if(property_get("voice.record.conc.disabled", propValue, NULL)) {
-        prop_rec_enabled = atoi(propValue) || !strncmp("true", propValue, 4);
-    }
-
-    if(property_get("voice.voip.conc.disabled", propValue, NULL)) {
-        prop_voip_enabled = atoi(propValue) || !strncmp("true", propValue, 4);
-    }
-
+    bool prop_playback_enabled = !property_get_bool("voice.playback.conc.disabled", false);
+    bool prop_rec_enabled = !property_get_bool("voice.record.conc.disabled", false);
+    bool prop_voip_enabled = !property_get_bool("voice.voip.conc.disabled", false);
     bool mode_in_call = (AUDIO_MODE_IN_CALL != oldState) && (AUDIO_MODE_IN_CALL == state);
     //query if it is a actual voice call initiated by telephony
     if (mode_in_call) {
@@ -7057,8 +7045,7 @@ bool AudioPolicyManager::isInCall()
 }
 
 bool AudioPolicyManager::isStateInCall(int state) {
-    return ((state == AUDIO_MODE_IN_CALL) || (state == AUDIO_MODE_IN_COMMUNICATION) ||
-       ((state == AUDIO_MODE_RINGTONE) && (mPrevPhoneState == AUDIO_MODE_IN_CALL)));
+    return ((state == AUDIO_MODE_IN_CALL) || (state == AUDIO_MODE_IN_COMMUNICATION));
 }
 
 uint32_t AudioPolicyManager::getMaxEffectsCpuLoad()
